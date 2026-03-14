@@ -1,6 +1,34 @@
 import { fetchUserContribution, getAuthenticatedUser } from "@/module/github";
 import prisma from "@/lib/db";
 
+interface ContributionDay {
+  date: string;
+  contributionCount: number;
+}
+
+interface ContributionWeek {
+  contributionDays: ContributionDay[];
+}
+
+interface ContributionCalendar {
+  totalContributions: number;
+  weeks: ContributionWeek[];
+}
+
+interface GitHubPR {
+  created_at: string;
+}
+
+interface DbReview {
+  createdAt: Date;
+}
+
+interface MonthlyStats {
+  commits: number;
+  prs: number;
+  reviews: number;
+}
+
 export async function getDashboardStats() {
   try {
     const { session, token, username, octokit } = await getAuthenticatedUser();
@@ -48,7 +76,11 @@ export async function getDashboardStats() {
   }
 }
 
-function processMonthlyData(calendar: any, prs: any[], reviews: any[]) {
+function processMonthlyData(
+  calendar: ContributionCalendar | null | undefined,
+  prs: GitHubPR[],
+  reviews: DbReview[],
+) {
   const monthNames = [
     "Jan",
     "Feb",
@@ -63,7 +95,7 @@ function processMonthlyData(calendar: any, prs: any[], reviews: any[]) {
     "Nov",
     "Dec",
   ];
-  const monthlyData: Record<string, any> = {};
+  const monthlyData: Record<string, MonthlyStats> = {};
   const now = new Date();
 
   for (let i = 5; i >= 0; i--) {
@@ -71,10 +103,10 @@ function processMonthlyData(calendar: any, prs: any[], reviews: any[]) {
     monthlyData[monthNames[d.getMonth()]] = { commits: 0, prs: 0, reviews: 0 };
   }
 
-  calendar?.weeks.forEach((w: any) =>
-    w.contributionDays.forEach((d: any) => {
-      const m = monthNames[new Date(d.date).getMonth()];
-      if (monthlyData[m]) monthlyData[m].commits += d.contributionCount;
+  calendar?.weeks.forEach((week) =>
+    week.contributionDays.forEach((day: any) => {
+      const monthKey = monthNames[new Date(day.date).getMonth()];
+      if (monthlyData[monthKey]) monthlyData[monthKey].commits += day.contributionCount;
     }),
   );
 
@@ -94,7 +126,7 @@ function processMonthlyData(calendar: any, prs: any[], reviews: any[]) {
   }));
 }
 
-function processContributionData(calendar: any) {
+function processContributionData(calendar: ContributionCalendar | null | undefined) {
   if (!calendar) return null;
   return {
     totalContributions: calendar.totalContributions,

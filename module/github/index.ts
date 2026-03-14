@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { cache } from "react";
+import { get } from "http";
 
 export const getAuthenticatedUser = cache(async () => {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -58,8 +59,7 @@ export const getRepositories = async (
   page: number = 1,
   perPage: number = 10,
 ) => {
-  const token = await getGithubToken();
-  const octokit = new Octokit({ auth: token });
+  const { octokit } = await getAuthenticatedUser();
 
   const { data } = await octokit.rest.repos.listForAuthenticatedUser({
     sort: "updated",
@@ -73,32 +73,35 @@ export const getRepositories = async (
 };
 
 export const createWebhook = async (owner: string, repo: string) => {
-  const token = await getGithubToken();
-  const octokit = new Octokit({ auth: token });
-
+  const { octokit } = await getAuthenticatedUser();
   const webhookUrl = `${process.env.NEXT_PUBLIC_APP_BASE_URL}/api/webhooks/github`;
 
-  const { data: hooks } = await octokit.rest.repos.listWebhooks({
-    owner,
-    repo,
-  });
+  try {
+    const { data: hooks } = await octokit.rest.repos.listWebhooks({
+      owner,
+      repo,
+    });
 
-  const existingWebhook = hooks.find((hook) => hook.config.url === webhookUrl);
-  if (existingWebhook) {
-    return existingWebhook;
+    const existingWebhook = hooks.find(
+      (hook) => hook.config.url === webhookUrl,
+    );
+    if (existingWebhook) return existingWebhook;
+
+    const { data } = await octokit.rest.repos.createWebhook({
+      owner,
+      repo,
+      config: {
+        url: webhookUrl,
+        content_type: "json",
+      },
+      events: ["pull_request"],
+    });
+
+    return data;
+  } catch (error) {
+    console.error("Error creating webhook:", error);
+    throw new Error("Webhook creation failed");
   }
-
-  const { data } = await octokit.rest.repos.createWebhook({
-    owner,
-    repo,
-    config: {
-      url: webhookUrl,
-      content_type: "json",
-    },
-    events: ["pull_request"],
-  });
-
-  return data;
 };
 
 export const deleteWebhook = async (owner: string, repo: string) => {

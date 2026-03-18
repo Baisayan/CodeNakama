@@ -27,12 +27,7 @@ export const generateReview = inngest.createFunction(
           throw new Error("No GitHub access token found");
         }
 
-        const data = await getPullRequestDiff(
-          account.accessToken,
-          owner,
-          repo,
-          prNumber,
-        );
+        const data = await getPullRequestDiff(owner, repo, prNumber);
 
         return {
           ...data,
@@ -90,7 +85,7 @@ Format your response in markdown.`;
 
     // posts review as comment on pr in github
     await step.run("post-comment", async () => {
-      await postReviewComment(token, owner, repo, prNumber, review);
+      await postReviewComment(owner, repo, prNumber, review);
     });
 
     // saves review in db

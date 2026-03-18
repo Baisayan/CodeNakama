@@ -134,59 +134,58 @@ export const deleteWebhook = async (owner: string, repo: string) => {
 };
 
 export async function getRepoFileContents(
-  token: string,
   owner: string,
   repo: string,
-  path: string = "",
+  branch: string = "main",
 ): Promise<{ path: string; content: string }[]> {
-  const octokit = new Octokit({ auth: token });
-  const { data } = await octokit.rest.repos.getContent({
-    owner,
-    repo,
-    path,
-  });
+  const { octokit } = await getAuthenticatedUser();
 
-  if (!Array.isArray(data)) {
-    if (data.type === "file" && data.content) {
-      return [
-        {
-          path: data.path,
-          content: Buffer.from(data.content, "base64").toString("utf-8"),
-        },
-      ];
-    }
-    return [];
-  }
+  try {
+    const { data: treeData } = await octokit.rest.git.getTree({
+      owner,
+      repo,
+      tree_sha: branch,
+      recursive: "true",
+    });
 
-  let files: { path: string; content: string }[] = [];
+    const files = treeData.tree.filter(
+      (item) =>
+        item.type === "blob" &&
+        !item.path?.match(
+          /\.(png|jpg|jpeg|gif|svg|ico|pdf|zip|tar|gz|lock|map|exe|dll|pyc)$/i,
+        ),
+    );
 
-  for (const item of data) {
-    if (item.type === "file") {
-      const { data: fileData } = await octokit.rest.repos.getContent({
-        owner,
-        repo,
-        path: item.path,
-      });
+    if (files.length > 500) throw new Error("Repo is too large");
 
-      if (
-        !Array.isArray(fileData) &&
-        fileData.type === "file" &&
-        fileData.content
-      ) {
-        if (!item.path.match(/\.(png|jpg|jpeg|gif|svg|ico|pdf|zip|tar|gz)$/i)) {
-          files.push({
-            path: item.path,
-            content: Buffer.from(fileData.content, "base64").toString("utf-8"),
+    const results: { path: string; content: string }[] = [];
+    const CHUNK_SIZE = 20;
+
+    for (let i = 0; i < files.length; i += CHUNK_SIZE) {
+      const chunk = files.slice(i, i + CHUNK_SIZE);
+
+      const chunkResults = await Promise.all(
+        chunk.map(async (file) => {
+          const { data: blob } = await octokit.rest.git.getBlob({
+            owner,
+            repo,
+            file_sha: file.sha!,
           });
-        }
-      }
-    } else if (item.type === "dir") {
-      const subFiles = await getRepoFileContents(token, owner, repo, item.path);
-      files = files.concat(subFiles);
-    }
-  }
 
-  return files;
+          return {
+            path: file.path!,
+            content: Buffer.from(blob.content, "base64").toString("utf-8"),
+          };
+        }),
+      );
+
+      results.push(...chunkResults);
+    }
+
+    return results;
+  } catch (error) {
+    throw new Error(`Error fetching repo contents: ${error}`);
+  }
 }
 
 export async function getPullRequestDiff(

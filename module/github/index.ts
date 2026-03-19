@@ -189,11 +189,12 @@ export async function getRepoFileContents(
 }
 
 export async function getPullRequestDiff(
+  token: string,
   owner: string,
   repo: string,
   prNumber: number,
 ) {
-  const { octokit } = await getAuthenticatedUser();
+  const octokit = new Octokit({ auth: token });
 
   const [prResponse, diffResponse] = await Promise.all([
     octokit.rest.pulls.get({ owner, repo, pull_number: prNumber }),

@@ -38,7 +38,7 @@ export const generateReview = inngest.createFunction(
 
     // get codebase context relevant to pr diff
     const context = await step.run("retrieve-context", async () => {
-      const query = `${prData.title}\n${prData.description}`;
+      const query = `${prData.title}\n${prData.description}\n${prData.diff}`;
       return await retrieveContext(query, `${owner}/${repo}`);
     });
 

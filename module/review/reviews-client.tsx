@@ -7,9 +7,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, CheckCircle2, XCircle } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { getReviews } from "@/module/review";
 
@@ -43,27 +42,9 @@ export default function ReviewsPage({
           {initialData.map((review) => (
             <Card key={review.id}>
               <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="space-y-2 flex-1">
-                    <div className="flex items-center gap-2">
-                      <CardTitle className="text-lg">
-                        {review.prTitle}
-                      </CardTitle>
-                      <Badge
-                        variant={
-                          review.status === "completed"
-                            ? "default"
-                            : "destructive"
-                        }
-                      >
-                        {review.status === "completed" ? (
-                          <CheckCircle2 className="size-3" />
-                        ) : (
-                          <XCircle className="size-3" />
-                        )}
-                        {review.status}
-                      </Badge>
-                    </div>
+                <div className="flex justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">{review.prTitle}</CardTitle>
                     <CardDescription>
                       {review.repository.fullName} ⋅ PR #{review.prNumber}
                     </CardDescription>
@@ -93,15 +74,6 @@ export default function ReviewsPage({
                     ....
                   </p>
                 </div>
-                <Button variant="outline" asChild>
-                  <a
-                    href={review.prUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    View Full Review on GitHub
-                  </a>
-                </Button>
               </CardContent>
             </Card>
           ))}
